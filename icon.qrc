@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/icon">
+        <file>res/ic_move_down.png</file>
+        <file>res/ic_move_left.png</file>
+        <file>res/ic_move_right.png</file>
+        <file>res/ic_move_up.png</file>
+        <file>res/ic_laser_black.png</file>
+        <file>res/ic_laser_red.png</file>
+        <file>res/ic_machine_reset.png</file>
+        <file>res/ic_set_point.png</file>
+    </qresource>
+</RCC>
