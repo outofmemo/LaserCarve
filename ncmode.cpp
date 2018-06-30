@@ -66,7 +66,6 @@ void NCMode::lineTo(float x, float y)
     double tx, ty;
     double step;
     double rate;
-//    printf("<DEBUG: x:%f, y:%f>", x, y);
     x = (float)mmToCoord(x);
     y = (float)mmToCoord(y);
     if(COORD_X == x && COORD_Y == y)
@@ -107,10 +106,10 @@ void NCMode::lineTo(float x, float y)
 void NCMode::arcTo(bool clockwise, float x, float y, float rx, float ry)
 {
 #define circle_tolerances_threshold 0.5
-#define circle_side_length 0.3
+#define circle_side_length 0.4
     float x0 = coordToMM(COORD_X);
     float y0 = coordToMM(COORD_Y);
-    double tolerances = pow(x - rx, 2) + pow(y - ry, 2) - pow(x0 - rx, 2) - pow(y0 - ry, 2);
+    double tolerances = sqrt(pow(x - rx, 2) + pow(y - ry, 2)) - sqrt(pow(x0 - rx, 2) + pow(y0 - ry, 2));
     if(tolerances > circle_tolerances_threshold || tolerances < 0 - circle_tolerances_threshold)
         throw "begin point and the end point are not in the same circle";
     double r = sqrt(pow(x - rx, 2) + pow(y - ry, 2));
@@ -257,7 +256,8 @@ void NCMode::run()
     LogUtil("NCMode begin...");
     for(mIndex=0; mIndex < mLines.size(); mIndex ++)
     {
-        printf("#%d ", mIndex + 1);
+        LogUtil::debug("#%d;(%d,%d);(%f,%f);%s", mIndex + 1, COORD_X, COORD_Y
+                       , coordToMM(COORD_X), coordToMM(COORD_Y), mLines[mIndex].toAscii().constData());
         checkPause();
         try
         {
@@ -267,8 +267,10 @@ void NCMode::run()
         {
             LogUtil::error("runtime error(%s) in line %d:\n%s", str, mIndex + 1
                            , mLines[mIndex].toAscii().constData());
-            QMessageBox::critical(NULL, "NC code error", QString("error: ") + str
-                                  + ", in line " + (mIndex + 1) + "\n" + mLines[mIndex]);
+            laserOff();
+            emit NCError(QString("error: ") + str + ", in line " + (mIndex + 1) + "\n" + mLines[mIndex]);
+//            QMessageBox::critical(NULL, "NC code error", QString("error: ") + str
+//                                  + ", in line " + (mIndex + 1) + "\n" + mLines[mIndex]);
             allowLaserWhenMove = _allowLaser;
             return;
         }

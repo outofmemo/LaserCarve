@@ -43,5 +43,5 @@ void BitmapMode::transImage(Qt::ImageConversionFlags flag)
     mSolvedIndex = colorTable.count();
     mImage.setColor(mBlackIndex, 0xffcccccc);
     mImage.setColor(mSolvedIndex, 0xff000000);
-    LogUtil::info("black index:%d, solved color index:%d.", mBlackIndex, mSolvedIndex);
+    //LogUtil::info("black index:%d, solved color index:%d.", mBlackIndex, mSolvedIndex);
 }

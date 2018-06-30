@@ -6,10 +6,14 @@
 
 #define COORD_X coordY
 #define COORD_Y coordX
+#define DOUBLE_TO_INT(d) ((int)((d) + 0.5))
 class NCMode : public BasicMode
 {
-#define DOUBLE_TO_INT(d) ((int)((d) + 0.5))
+
+Q_OBJECT
+
 public:
+    //explicit NCMode(QObject *parent = 0);
     static NCMode* createObj(QString codes);
     static NCMode* createObj(const char* file);
     void run();
@@ -17,6 +21,9 @@ public:
     inline QStringList getLines(){return mLines;}
     static inline int mmToCoord(double a){return DOUBLE_TO_INT(a / STEP_SIZE / pixelSize);}
     static inline float coordToMM(int a){return a * STEP_SIZE * pixelSize;}
+
+signals:
+    void NCError(QString error);
 
 protected:
     NCMode(QString codes);
@@ -29,6 +36,7 @@ protected:
     QStringList mLines;
     int mIndex;
     int mG;
+
 };
 
 #endif // NCMODE_HH

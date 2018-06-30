@@ -218,12 +218,14 @@ void HomeWidget::openFile(bool)
         ncWindow->prepare(file);
         ncWindow->show();
     }else{
-        LogUtil::debug("before new");
+        //LogUtil::debug("before new");
         BitmapWindow* bitmapWindow = new BitmapWindow();
-        LogUtil::debug("before prepare");
-        bitmapWindow->prepare(file);
-        LogUtil::debug("before show");
-        bitmapWindow->show();
+        //LogUtil::debug("before prepare");
+        if(bitmapWindow->prepare(file))
+        {
+            //LogUtil::debug("before show");
+            bitmapWindow->show();
+        }
     }
 
 }

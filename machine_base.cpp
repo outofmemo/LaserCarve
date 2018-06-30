@@ -7,11 +7,12 @@ int const gpioNums[] = {GPIO_LASER, GPIO_ENABLE, GPIO_X_MOTOR, GPIO_X_DIRECTION
                         , GPIO_Y_MOTOR, GPIO_Y_DIRECTION};
 int* const pgpioFDs[] = {&laserFD, &enableFD, &xMotorFD, &xDirectFD, &yMotorFD, &yDirectFD};
 bool allowLaserWhenMove = false;
+bool cushionState = DEFAULT_CUSHION_STATE;
 bool machineExit = false;
 static pthread_mutex_t goto_mutex;
 
-int pixelDuration = 30;
-int stepDuration = 3;
+int pixelDuration = DEFUALT_PIXEL_DURATION;
+int stepDuration = DEFAULT_STEP_DURATION;
 int pixelSize, coordX, coordY;
 int maxX, maxY;
 
@@ -210,6 +211,9 @@ void _gotoCoord(int x, int y,bool allowBreak)
         TEST_RESET_FD(yDirectFD);
     }
 //    printf("{(%d,%d) goto (%d,%d)}", coordX, coordY, x, y);
+    int current_duration = stepDuration;
+    if(cushionState)
+        current_duration = CUSHION_MAX_DURATION;
     int count = MAX(abs(x - coordX),abs(y - coordY));
     for(int i=0; i<count; i++)
     {
@@ -221,12 +225,18 @@ void _gotoCoord(int x, int y,bool allowBreak)
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
         for(int j=0; j<pixelSize; j++)
         {
-            usleep(stepDuration * 1000 / 2);
+            if(cushionState && current_duration > stepDuration)
+            {
+                current_duration -= CUSHION_DURATION_RATE;
+                if(current_duration < stepDuration)
+                    current_duration = stepDuration;
+            }
+            usleep(current_duration * 1000 / 2);
             if(coordX != x)
                 SET_FD(xMotorFD);
             if(coordY != y)
                 SET_FD(yMotorFD);
-            usleep(stepDuration * 1000 / 2);
+            usleep(current_duration * 1000 / 2);
             if(coordX != x)
                 RESET_FD(xMotorFD);
             if(coordY != y)
@@ -278,7 +288,7 @@ loadcoord_out:
     if(ret != 0)
     {
         coordX = coordY = 0;
-        pixelSize = 1;
+        pixelSize = DEFAULT_PIXEL_SIZE;
     }
     maxX = X_SIZE / STEP_SIZE / pixelSize;
     maxY = Y_SIZE / STEP_SIZE / pixelSize;
@@ -295,7 +305,7 @@ loadcoord_out:
 int saveCoord()
 {
     int ret = 0;
-    FILE * fp;
+    FILE *fp = NULL;
     char buf[100];
     if(NULL == (fp = fopen(COORD_FILE, "w")))
     {
@@ -356,8 +366,9 @@ void machineReset()
     LogUtil::info("machine reset.");
     motorEnable();
     laserOff();
-    coordX += maxX / 8;
-    coordY += maxY / 4;
+    coordX += X_INTERFERENCE;
+    coordY += Y_INTERFERENCE;
+    allowLaserWhenMove = false;
     _gotoCoord(0 ,0, false);
     motorDisable();
     saveCoord();

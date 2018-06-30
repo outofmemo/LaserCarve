@@ -1,4 +1,5 @@
 #include "ncwindow.hh"
+#include <QMessageBox>
 
 #define PREVIEW_AREA 272
 
@@ -53,7 +54,7 @@ NCWindow::NCWindow(QWidget *parent) :
     connect(mAbortBtn, SIGNAL(clicked(bool)), this, SLOT(doAbort(bool)));
     connect(mPauseBtn, SIGNAL(clicked(bool)), this, SLOT(doPause(bool)));
     connect(mResumeBtn, SIGNAL(clicked(bool)), this, SLOT(doResume(bool)));
-    startTimer(300);
+    mTimer = startTimer(300);
 }
 
 
@@ -63,16 +64,22 @@ void NCWindow::prepare(QString file)
         mMode->cancel();
     mMode = NCMode::createObj(file.toAscii().constData());
     connect(mMode, SIGNAL(threadFinished()), this, SLOT(doExit()));
+    connect(mMode, SIGNAL(NCError(QString)), this, SLOT(doError(QString)));
     mStartBtn->setDisabled(false);
     mAbortBtn->setDisabled(false);
     mPauseBtn->setDisabled(true);
     mResumeBtn->setDisabled(true);
 }
 
+void NCWindow::doError(QString error)
+{
+    QMessageBox::critical(NULL, "NC code error", error);
+}
 
 void NCWindow::doExit()
 {
-    mMode = NULL;
+    //mMode = NULL;
+    killTimer(mTimer);
     this->close();
 }
 

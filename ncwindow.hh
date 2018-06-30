@@ -6,6 +6,7 @@
 #include <QImage>
 #include <QTextEdit>
 #include <QLabel>
+#include <QString>
 #include "logtext.hh"
 #include "ncmode.hh"
 
@@ -18,6 +19,7 @@ public:
 
 private:
     NCMode* mMode;
+    int mTimer;
     QPushButton* mStartBtn;
     QPushButton* mAbortBtn;
     QPushButton* mPauseBtn;
@@ -35,6 +37,7 @@ public slots:
     void doPause(bool clicked);
     void doResume(bool clicked);
     void doExit();
+    void doError(QString error);
 
 };
 

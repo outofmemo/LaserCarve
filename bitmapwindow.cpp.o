@@ -2,13 +2,9 @@
 #include "scanmode.hh"
 #include "continuationmode.hh"
 #include <QPainter>
-#include <QCoreApplication>
 
 #define PREVIEW_SIZE 250.0
 #define PREVIEW_AREA 272
-
-bool imagePrepared = false;
-bool imageRejected = false;
 
 BitmapWindow::BitmapWindow(QWidget *parent) :
     QWidget(parent)
@@ -20,8 +16,6 @@ BitmapWindow::BitmapWindow(QWidget *parent) :
     connect(mTimer, SIGNAL(timeout()), this, SLOT(update()));
     mTimer->start(300);
 
-    pthread_mutex_init(&mMutex, NULL);
-
     QSizePolicy sizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
     sizePolicy.setHorizontalStretch(0);
     sizePolicy.setVerticalStretch(0);
@@ -32,13 +26,6 @@ BitmapWindow::BitmapWindow(QWidget *parent) :
     setCursor(QCursor(Qt::BlankCursor));
     setAcceptDrops(false);
     setWindowFlags(Qt::FramelessWindowHint);
-    setAttribute(Qt::WA_DeleteOnClose);
-
-    mMessageBox = new QMessageBox(this);
-    mMessageBox = new QMessageBox(QMessageBox::NoIcon ,"transforming..."
-                                  , "wait for a minute...", QMessageBox::NoButton, this);
-    mMessageBox->setText("transfroming image, wait for a minute ...");
-    mMessageBox->setStandardButtons(QMessageBox::Cancel);
 
     mStartBtn = new QPushButton(tr("Start"), this);
     mStartBtn->setGeometry(10, 20, 50, 40);
@@ -109,16 +96,11 @@ void BitmapWindow::delayChange(int value)
 
 void BitmapWindow::paintEvent(QPaintEvent *)
 {
-    if(!imagePrepared)
-        return;
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 //    painter.setPen(Qt::NoPen);
     painter.setBrush(QColor(250, 250, 200));
     painter.drawRect(480 - PREVIEW_AREA, 0 , 480, PREVIEW_AREA);
-    painter.setBrush(QColor(0, 0, 0));
-    painter.drawText(130, 40, QString("X:") + QString::number(coordX) + "  Y:" + QString::number(coordY));
-    pthread_mutex_lock(&mMutex);
     if(mImage){
         float rate, ratex, ratey;
         ratex = PREVIEW_SIZE / mImage->width();
@@ -127,16 +109,18 @@ void BitmapWindow::paintEvent(QPaintEvent *)
             rate = 1;
         else
             rate = qMin(ratex, ratey);
+
         int tw = mImage->width()*rate;
         int th = mImage->height()*rate;
         int tx = 480 - PREVIEW_AREA + (PREVIEW_AREA - PREVIEW_SIZE) / 2 + (PREVIEW_SIZE - tw) / 2;
         int ty = (PREVIEW_AREA - PREVIEW_SIZE) / 2 + (PREVIEW_SIZE - th) / 2;
         painter.drawImage(QRect(tx, ty, tw, th), *mImage);
-        if(mBitmapMode){
-            painter.drawText(130, 90, QString("cost ") + QString::number(mBitmapMode->getTime()) + " S");
-        }
     }
-    pthread_mutex_unlock(&mMutex);
+    painter.setBrush(QColor(0, 0, 0));
+    painter.drawText(130, 40, QString("X:") + QString::number(coordX) + "  Y:" + QString::number(coordY));
+    if(mBitmapMode){
+        painter.drawText(130, 90, QString("cost ") + QString::number(mBitmapMode->getTime()) + " S");
+    }
 }
 
 
@@ -193,118 +177,33 @@ void BitmapWindow::modeConfigChange(int)
     prepare(mFile);
 }
 
-
-void* prepareImage(void* arg)
+void BitmapWindow::prepare(QString file)
 {
-    //LogUtil::debug("thread running");
-    BitmapWindow* window = (BitmapWindow*)arg;
-    pthread_mutex_lock(&window->mMutex);
-    if(window->mBitmapMode)
-        window->mBitmapMode->cancel();
-    window->mImage = NULL;
-    window->mBitmapMode = NULL;
-    pthread_mutex_unlock(&window->mMutex);
+    if(mBitmapMode)
+        mBitmapMode->cancel();
     Qt::ImageConversionFlags flag = Qt::DiffuseDither;
-    int flagIndex = window->mDiffBox->currentIndex();
+    int flagIndex = mDiffBox->currentIndex();
     if(1 == flagIndex)
         flag = Qt::OrderedDither;
     else if(2 == flagIndex)
         flag = Qt::ThresholdDither;
-
-    if(window->mFile.endsWith("jpg",Qt::CaseInsensitive) || window->mFile.endsWith("jpeg",Qt::CaseInsensitive))
+    mFile = file;
+    if(mFile.endsWith("jpg",Qt::CaseInsensitive) || mFile.endsWith("jpeg",Qt::CaseInsensitive))
     {
-        QString cmd = QString("cat ") + window->mFile + " | /root/workspace/jpegtopng > /tmp/transformed.png";
-        LogUtil::debug("it's a jpeg image, it will take some time to decompress it ... ");
+        QString cmd = QString("cat ") + mFile + " | /root/workspace/jpegtopng > /tmp/transformed.png";
+        LogUtil::debug("it's a jpeg image, it will cost some time to decompress it ... ");
         system(cmd.toAscii().constData());
         LogUtil::debug("decompress jpeg image finished.");
-        window->mFile = "/tmp/transformed.png";
+        mFile = "/tmp/transformed.png";
     }
-
-    if(0 == window->mModeBox->currentIndex())
-        window->mBitmapMode = ContinuationMode::createObj(window->mFile.toAscii().constData(), flag);
+    if(0 == mModeBox->currentIndex())
+        mBitmapMode = ContinuationMode::createObj(mFile.toAscii().constData(), flag);
     else
-        window->mBitmapMode = ScanMode::createObj(window->mFile.toAscii().constData(), flag);
-    window->mImage = window->mBitmapMode->getImageP();
-    QObject::connect(window->mBitmapMode, SIGNAL(threadFinished()), window, SLOT(close()));
-#if 0
-    window->mStartBtn->setDisabled(false);
-    window->mAbortBtn->setDisabled(false);
-    window->mPauseBtn->setDisabled(true);
-    window->mResumeBtn->setDisabled(true);
-#endif
-//    window->mMessageBox->close();
-    imagePrepared = true;
-    //LogUtil::debug("prepareImage finished");
-    //window->mMessageBox->close();
-   // window->mMessageBox->accept();
-    //LogUtil::debug("accept called");
-    //window->mMessageBox->done(QMessageBox::Ok);
-    return NULL;
-}
-
-void BitmapWindow::reject()
-{
-    imageRejected = true;
-}
-
-bool BitmapWindow::prepare(QString file)
-{
-    mFile = file;
-    //LogUtil::info("start to tranform image, wait for a minute ...");
-    imagePrepared = false;
-    imageRejected = false;
-//#if 0
-    mDiffBox->setDisabled(true);
-    mModeBox->setDisabled(true);
-
-    mStartBtn->setDisabled(true);
- //   mAbortBtn->setDisabled(true);
- //   mPauseBtn->setDisabled(true);
- //   mResumeBtn->setDisabled(true);
-//# endif
-    //LogUtil::debug("to create thread");
-    pthread_t thread =createThread(prepareImage, this);
-    //LogUtil::debug("thread created");
-//    QCoreApplication::processEvents();
-//    while(!imagePrepared)
-//        usleep(100000);
-
-
-//#if 0
-    if(!imagePrepared)
-    {
-        LogUtil::debug("image not prepared");
-        mMessageBox->show();
-        connect(mMessageBox, SIGNAL(rejected()), this, SLOT(reject()));
-        while(!imagePrepared)
-        {
-            QCoreApplication::processEvents();
-            if(imageRejected)
-            {
-                pthread_cancel(thread);
-                this->close();
-                return false;
-            }
-            usleep(10000);
-        }
-        //mMessageBox->accept();
-        mMessageBox->close();
-//        if(QMessageBox::Cancel == mMessageBox->exec())
-//        {
-//            pthread_cancel(thread);
-//            this->close();
-//            return false;
-//        }
-    }
-    //LogUtil::debug("image prepared");
-    mDiffBox->setDisabled(false);
-    mModeBox->setDisabled(false);
-
+        mBitmapMode = ScanMode::createObj(mFile.toAscii().constData(), flag);
+    mImage = mBitmapMode->getImageP();
+    connect(mBitmapMode, SIGNAL(threadFinished()), this, SLOT(close()));
     mStartBtn->setDisabled(false);
     mAbortBtn->setDisabled(false);
     mPauseBtn->setDisabled(true);
     mResumeBtn->setDisabled(true);
-    return true;
 }
-
-

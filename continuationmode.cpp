@@ -81,15 +81,6 @@ bool ContinuationMode::nextEntry()
     return false;
 }
 
-//void ContinuationMode::judgeTrend()
-//{
-
-//}
-
-//bool ContinuationMode::paintBlock()
-//{
-//    return false;
-//}
 
 bool ContinuationMode::checkPixel(int x, int y)
 {

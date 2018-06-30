@@ -8,6 +8,7 @@
 #include <QSlider>
 #include <QComboBox>
 #include <QLabel>
+#include <QMessageBox>
 #include "logtext.hh"
 #include "bitmapmode.hh"
 
@@ -16,8 +17,9 @@ class BitmapWindow : public QWidget
     Q_OBJECT
 public:
     explicit BitmapWindow(QWidget *parent = 0);
-    void prepare(QString file);
+    bool prepare(QString file);
     ~BitmapWindow();
+    friend void* prepareImage(void* arg);
 
 protected:
     void paintEvent(QPaintEvent * event);
@@ -26,6 +28,8 @@ private:
     QImage* mImage;
     LogText* mLogText;
     QTimer* mTimer;
+    QMessageBox* mMessageBox;
+    pthread_mutex_t mMutex;
     QPushButton* mStartBtn;
     QPushButton* mAbortBtn;
     QPushButton* mPauseBtn;
@@ -46,6 +50,7 @@ public slots:
     void doResume(bool clicked);
     void modeConfigChange(int index);
     void delayChange(int value);
+    void reject();
 
 };
 
